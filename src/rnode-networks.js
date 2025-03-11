@@ -33,30 +33,46 @@ export const localNet = {
 }
 
 // Test network
+const domainMap = {
+  'asi-dev': '146.235.215.215',
+  'asi-stg': '159.54.178.87',
+  'asi-prod': '167.234.221.56'
+};
 
-const range = n => [...Array(n).keys()]
+const getIPFromAlias = alias => domainMap[alias];
+
+const range = n => [...Array(n).keys()];
 
 const getTestNetUrls = n => {
+  const alias = Object.keys(domainMap)[n];
   const instance = `node${n}`
   return {
-    domain: `domain`,
+    domain: alias,
+    ip: getIPFromAlias(alias),
     instance,
     shardId: testNetShardId,
     ...defaultRemotePortsSSL,
   }
 }
 
-const testnetHosts = range(1).map(getTestNetUrls)
+const ASIHosts = range(Object.keys(domainMap).length).map(getTestNetUrls);
 
 export const testNet = {
   title: 'F1r3fly testing network',
   name: 'testnet',
   tokenName,
   tokenDecimal: defautTokenDecimal,
-  hosts: testnetHosts,
-  readOnlys: [
-    { domain: 'domain', instance: 'observer', shardId: testNetShardId, ...defaultRemotePortsSSL },
-  ],
+  hosts: ASIHosts,
+  readOnlys: range(Object.keys(domainMap).length).map(n => {
+    const alias = Object.keys(domainMap)[n];
+    return {
+      domain: alias,
+      ip: getIPFromAlias(alias),
+      instance: `observer-${alias}`,
+      shardId: testNetShardId,
+      ...defaultRemotePortsSSL,
+    };
+  }),
 }
 
 // MAIN network
@@ -84,11 +100,12 @@ export const mainNet = {
 }
 
 export const getNodeUrls = ({name, tokenName, tokenDecimal, shardId, domain, grpc, http, https, httpAdmin, httpsAdmin, instance}) => {
+  const ipAddress = getIPFromAlias(domain);
   const scheme       = !!https ? 'https' : !!http ? 'http' : ''
   const schemeAdmin  = !!httpsAdmin ? 'https' : !!httpAdmin ? 'http' : ''
-  const httpUrl      = !!https || !!http ? `${scheme}://${domain}:${https || http}` : void 8
-  const httpAdminUrl = !!httpsAdmin || !!httpAdmin ? `${schemeAdmin}://${domain}:${httpsAdmin || httpAdmin}` : void 8
-  const grpcUrl      = !!grpc ? `${domain}:${grpc}` : void 8
+  const httpUrl = !!https || !!http ? `${scheme}://${ipAddress}:${https || http}` : void 8;
+  const httpAdminUrl = !!httpsAdmin || !!httpAdmin ? `${schemeAdmin}://${ipAddress}:${httpsAdmin || httpAdmin}` : void 8;
+  const grpcUrl = !!grpc ? `${ipAddress}:${grpc}` : void 8;
 
   return {
     network      : name,

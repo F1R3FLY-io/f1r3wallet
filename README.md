@@ -1,4 +1,4 @@
-# F1R3Node JS client examples
+# F1r3Node JS client examples
 
 See also recording of code walk-thru old sessions:
 
@@ -7,7 +7,7 @@ See also recording of code walk-thru old sessions:
 
 ## Web (HTTP)
 
-In the browser connection to F1R3Node can be done with **RNode Web API**. It's also possible to use gRPC with the proxy.
+In the browser connection to F1r3Node can be done with **F1r3Node Web API**. It's also possible to use gRPC with the proxy.
 Web API has only defined schema in Scala source, for the new info please check [RChain issue 2974](https://github.com/rchain/rchain/issues/2974).
 
 <details>
@@ -21,17 +21,19 @@ npm install && docker-compose up -d && npm run start:web
 docker-compose logs -f
 ```
 
+</details>
+
 ## Nodejs (gRPC)
 
-This repo contains examples how to use [**@tgrospic/rnode-grpc-js**](https://github.com/tgrospic/rnode-grpc-js) helper library to generate **RNode gRPC API** for **Nodejs**. Currently this updated library can be found under **libs** directory.
+This repo contains examples how to use [**@tgrospic/rnode-grpc-js**](https://github.com/tgrospic/rnode-grpc-js) helper library to generate **RNode gRPC API** for **Nodejs**. Currently you can find updated library under **libs** directory.
 
-## Example of F1R3Node connection to Metamask (with hardware wallet)
+## Example of F1r3Node connection to Metamask (with hardware wallet)
 
-F1R3Node has support for Ethereum type of signatures so Metamask can be used for signing deploys e.g. making transfers of REVs. In Web example, button to add selected Metamask account should be visible next to REV import textbox.
+F1r3Node has support for Ethereum type of signatures so Metamask can be used for signing deploys e.g. making transfers of REVs. In Web example, button to add selected Metamask account should be visible next to REV import textbox.
 
 Helper functions are in [eth-wrapper.js](src/eth/eth-wrapper.js) which contains the code for communication with Metamask, getting selected ETH address and sending deploys for signing.
 In [eth-sign.js](src/eth/eth-sign.js) are functions to verify deploy signature and to extract public key.
-This is all that is needed for communication with Metamask and also for connected hardware wallets (Ledger). How to use these functions and send deploys to F1R3Node is in [rnode-web.js](src/rnode-web.js).
+This is all that is needed for communication with Metamask and also for connected hardware wallets (Ledger). How to use these functions and send deploys to F1r3Node is in [rnode-web.js](src/rnode-web.js).
 
 Changes on the web page are only saved in memory so it will be lost after refreshing the page.
 F1r3fly networks available for selection are in [rnode-networks.js](src/rnode-networks.js) file.
@@ -71,14 +73,14 @@ npm run start:web
 
 ## Run **Nodejs example** ([`src/nodejs/client.js`](src/nodejs/client.js))
 
-In `src/nodejs/client.js` script is an example of how to connect to F1R3Node from Nodejs.
+In `src/nodejs/client.js` script is an example of how to connect to RNode from Nodejs.
 
 ```sh
 # Run nodejs example / sample requests to F1r3fly testnet
 npm run start:nodejs
 ```
 
-## Run F1R3Node with Docker
+## Run F1r3Node with Docker
 
 In the project is [Docker compose](docker-compose.yml) configuration to run local F1r3fly network.
 

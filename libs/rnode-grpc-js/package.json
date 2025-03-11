@@ -1,0 +1,71 @@
+{
+  "name": "@tgrospic/rnode-grpc-js",
+  "version": "0.11.0",
+  "description": "RNode gRPC helpers",
+  "repository": "github:tgrospic/rnode-grpc-js",
+  "author": "Tomislav Grospic",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist-types/index.d.ts",
+  "scripts": {
+    "start": "run-p build:es5:w",
+    "build": "run-p build:es5 build:docs",
+    "build:es5": "tsc",
+    "build:es5:w": "tsc -w",
+    "build:docs": "typedoc src --out dist-docs --excludePrivate --excludeProtected",
+    "prepublishOnly": "npm-run-all clean build",
+    "publish:public": "npm publish --access public",
+    "clean": "rimraf dist dist-module dist-types dist-docs",
+    "clean:all": "rimraf dist dist-module dist-types dist-docs node_modules"
+  },
+  "bin": {
+    "rnode-grpc": "bin/rnode-grpc"
+  },
+  "keywords": [
+    "rchain",
+    "grpc",
+    "protobuf",
+    "javascript",
+    "js",
+    "rnode",
+    "rholang"
+  ],
+  "dependencies": {
+    "@grpc/grpc-js": "^1.12.6",
+    "blakejs": "^1.1.1",
+    "bs58": "^4.0.1",
+    "elliptic": "^6.5.4",
+    "fs-extra": "^10.0.0",
+    "google-protobuf": "^3.19.1",
+    "js-sha3": "^0.8.0",
+    "ramda": "^0.27.1",
+    "request": "^2.88.2"
+  },
+  "devDependencies": {
+    "@types/bs58": "^4.0.1",
+    "@types/elliptic": "^6.4.14",
+    "@types/fs-extra": "^9.0.13",
+    "@types/google-protobuf": "^3.15.5",
+    "@types/node": "^16.18.126",
+    "@types/ramda": "^0.27.58",
+    "grpc-tools": "^1.11.2",
+    "npm-run-all": "^4.1.5",
+    "protobufjs": "^6.11.2",
+    "rimraf": "^3.0.2",
+    "typedoc": "^0.22.10",
+    "typescript": "4.7"
+  },
+  "peerDependencies": {
+    "grpc-tools": "^1.8.0",
+    "protobufjs": "^6.8.8"
+  },
+  "files": [
+    "dist",
+    "dist-types",
+    "src",
+    "src-template"
+  ],
+  "engines": {
+    "node": ">=6.0.0"
+  }
+}

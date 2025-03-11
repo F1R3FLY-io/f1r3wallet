@@ -1,0 +1,25 @@
+# Node.js dependencies
+node_modules/
+.parcel-cache/
+
+# Build artifacts
+dist/
+dist-types/
+dist-docs/
+
+# Temporary & generated files
+.gen
+.cache/
+
+# Ignore generated gRPC code
+rnode-grpc-gen/
+libs/rnode-grpc-js/node_modules/
+libs/rnode-grpc-js/dist/
+libs/rnode-grpc-js/dist-docs/
+libs/rnode-grpc-js/dist-types/
+
+
+# IDE files
+.idea/
+.vscode/
+.idea/

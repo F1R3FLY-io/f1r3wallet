@@ -32,7 +32,7 @@ export const labelRev = (amount, tokenName) =>
 
 export const showNetworkError = errMessage =>
   errMessage == 'Failed to fetch'
-    ? `${errMessage}: select a running RNode from the above selector.`
+    ? `${errMessage}: select a running F1r3Node from the above selector.`
     : errMessage
 
 // State cell

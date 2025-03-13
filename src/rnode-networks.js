@@ -1,4 +1,7 @@
 // @ts-check
+
+import {view} from "ramda";
+
 const defaultLocalPorts    = { grpc: 40401, http: 40403, httpAdmin: 40405 }
 const defaultLocalPortsSSL = { grpc: 40401, https: 443, httpAdmin: 40405 }
 
@@ -32,11 +35,14 @@ export const localNet = {
   ]
 }
 
+//TODO fix localhost based on devMode
+
 // Test network
 const domainMap = {
   'asi-dev': '146.235.215.215',
   'asi-stg': '159.54.178.87',
-  'asi-prod': '167.234.221.56'
+  'asi-prod': '167.234.221.56',
+  'localhost': 'localhost'
 };
 
 const getIPFromAlias = alias => domainMap[alias];

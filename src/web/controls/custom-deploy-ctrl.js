@@ -105,7 +105,7 @@ export const customDeployCtrl = (st, {wallet = [], node, onSendDeploy, onPropose
   return m('.ctrl.custom-deploy-ctrl',
     m('h2', 'Custom deploy'),
     isWalletEmpty ? m('b', `${node.tokenName} wallet is empty, add accounts to make deploys.`) : [
-      m('span', 'Send deploy to selected validator RNode.'),
+      m('span', 'Send deploy to selected validator F1r3Node.'),
 
       // Rholang examples
       m('',

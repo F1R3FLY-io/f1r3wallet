@@ -60,7 +60,7 @@ export const transferCtrl = (st, {wallet, node, onTransfer, warn}) => {
   return m('.ctrl.transfer-ctrl',
     m('h2', `Transfer ${tokenName} tokens`),
     isWalletEmpty ? m('b', `${tokenName} wallet is empty, add accounts to make transfers.`) : [
-      m('', 'Sends transfer deploy to selected validator RNode.'),
+      m('', 'Sends transfer deploy to selected validator F1r3Node.'),
 
       // Source REV address dropdown
       m('', labelStyle(account), labelSource),

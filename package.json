@@ -12,8 +12,8 @@
     "start:web": "parcel src/web/index.html",
     "build:web": "npm-run-all clean build",
     "build": "parcel build --public-url ./ src/web/index.html",
-    "f1r3node-generate": "rnode-grpc --rnode-version dev",
-    "f1r3node-generate-dev": "rnode-grpc --rnode-version dev --gen-dir rnode-grpc-dev",
+    "rnode-generate": "rnode-grpc --rnode-version dev",
+    "rnode-generate-dev": "rnode-grpc --rnode-version dev --gen-dir rnode-grpc-dev",
     "clean": "rimraf dist .cache",
     "clean:all": "rimraf dist .cache rnode-grpc-gen node_modules",
     "gh-pages": "npm run build-web && git checkout gh-pages && rm web.* style.* && cp dist/* . && git add ."
@@ -29,7 +29,7 @@
     "mithril": "^2.0.4",
     "npm-run-all": "^4.1.5",
     "ramda": "^0.27.1",
-    "@tgrospic/rnode-grpc-js": "file:libs/f1r3node-grpc-js"
+    "@tgrospic/rnode-grpc-js": "file:libs/rnode-grpc-js"
   },
   "devDependencies": {
     "@parcel/transformer-less": "^2.1.1",

@@ -6,11 +6,12 @@ const defaultLocalPorts    = { grpc: 40401, http: 40403, httpAdmin: 40405 }
 const defaultLocalPortsSSL = { grpc: 40401, https: 443, httpAdmin: 40405 }
 
 const defaultRemotePorts    = { grpc: 30001, http: 30003, httpAdmin: 30005 }
-const defaultRemotePortsSSL = { grpc: 30001, https: 443, httpAdmin: 30005 }
+const defaultRemotePortsSSL = { grpc: 30001, https: 30003, httpAdmin: 30005 }
+const defaultRemotePortsReadOnly = { grpc: 30011, https: 30013, httpAdmin: 30015 }
 
 // Shard IDs
 const defaultShardId = 'root'
-const testNetShardId = 'testnet6'
+const testNetShardId = 'root'
 const mainNetShardId = '' // not used until HF2
 
 // Token name
@@ -40,8 +41,11 @@ export const localNet = {
 // Test network
 const domainMap = {
   'asi-dev': '146.235.215.215',
+  'asi-dev-readonly': '146.235.215.215',
   'asi-stg': '159.54.178.87',
+  'asi-stg-readonly': '159.54.178.87',
   'asi-prod': '167.234.221.56',
+  'asi-prod-readonly': '167.234.221.56',
   'localhost': 'localhost'
 };
 
@@ -57,7 +61,7 @@ const getTestNetUrls = n => {
     ip: getIPFromAlias(alias),
     instance,
     shardId: testNetShardId,
-    ...defaultRemotePortsSSL,
+    ...(alias.includes('readonly') ? defaultRemotePortsReadOnly : defaultRemotePortsSSL),
   }
 }
 
@@ -76,7 +80,7 @@ export const testNet = {
       ip: getIPFromAlias(alias),
       instance: `observer-${alias}`,
       shardId: testNetShardId,
-      ...defaultRemotePortsSSL,
+      ...(alias.includes('readonly') ? defaultRemotePortsReadOnly : defaultRemotePortsSSL),
     };
   }),
 }
@@ -101,14 +105,15 @@ export const mainNet = {
   readOnlys: [
     // Load balancer (not gRPC) server for us, asia and eu servers
     { domain: 'dev', shardId: mainNetShardId, https: 443 },
-    { domain: 'dev', shardId: mainNetShardId, ...defaultRemotePortsSSL },
+    { domain: 'stg', shardId: mainNetShardId, ...defaultRemotePortsSSL },
   ],
 }
 
 export const getNodeUrls = ({name, tokenName, tokenDecimal, shardId, domain, grpc, http, https, httpAdmin, httpsAdmin, instance}) => {
   const ipAddress = getIPFromAlias(domain);
-  const scheme       = !!https ? 'https' : !!http ? 'http' : ''
-  const schemeAdmin  = !!httpsAdmin ? 'https' : !!httpAdmin ? 'http' : ''
+  // TODO use https when https is available
+  const scheme       = !!https ? 'http' : !!http ? 'http' : ''
+  const schemeAdmin  = !!httpsAdmin ? 'http' : !!httpAdmin ? 'http' : ''
   const httpUrl = !!https || !!http ? `${scheme}://${ipAddress}:${https || http}` : void 8;
   const httpAdminUrl = !!httpsAdmin || !!httpAdmin ? `${schemeAdmin}://${ipAddress}:${httpsAdmin || httpAdmin}` : void 8;
   const grpcUrl = !!grpc ? `${ipAddress}:${grpc}` : void 8;

@@ -35,7 +35,7 @@ const appTransfer = effects => async ({node, fromAccount, toAccount, amount, set
   const {signature} = await sendDeploy(node, fromAccount, code)
   log('DEPLOY ID (signature)', signature)
 
-  if (node.network === 'localnet') {
+  if (node.network === 'localnet' || node.network === 'testnet') {
     // Propose on local network, don't wait for result
     propose(node).catch(ex => warn(ex))
   }

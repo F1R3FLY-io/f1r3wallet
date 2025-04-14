@@ -19,12 +19,33 @@ export const balanceCtrl = (st, {wallet = [], node, onCheckBalance}) => {
   const checkBalanceEv = async _ => {
     st.update(s => ({...s, dataBal: '...', dataError: ''}))
 
-    const [bal, dataError] = await onCheckBalance(account.revAddr)
-      .catch(ex => ['', ex.message])
+    try {
+      const [balData, dataError] = await onCheckBalance(account.revAddr)
+      
+      // In case when server return an error
+      if (dataError) {
+        st.update(s => ({...s, dataBal: '', dataError}))
+        return
+      }
 
-    const dataBal = typeof bal === 'number'
-      ? bal === 0 ? `${bal}` : `${bal} (${showTokenDecimal(bal, tokenDecimal)} ${tokenName})` : ''
-    st.update(s => ({...s, dataBal, dataError}))
+      // If there is no balance data
+      if (!balData || (typeof balData.balance !== 'number' && typeof balData.balance !== 'string')) {
+        st.update(s => ({...s, dataBal: '', dataError: 'Invalid balance data received'}))
+        return
+      }
+
+      const balance = Number(balData.balance)
+
+      const dataBal = balance === 0 
+        ? `${balance}` 
+        : `${balance} (${showTokenDecimal(balance, tokenDecimal)} ${tokenName})${
+          balData.isCached ? ` [cached, ${balData.unconfirmedDeploys} unconfirmed deploy(s)]` : ''
+        }`
+
+      st.update(s => ({...s, dataBal, dataError: ''}))
+    } catch (ex) {
+      st.update(s => ({...s, dataBal: '', dataError: ex.message}))
+    }
   }
 
   const accountChangeEv = ev => {

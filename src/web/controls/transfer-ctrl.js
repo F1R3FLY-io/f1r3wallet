@@ -3,12 +3,12 @@ import m from 'mithril'
 import * as R from 'ramda'
 import { labelStyle, showTokenDecimal, labelRev, showNetworkError } from './common'
 import { ethDetected } from '../../eth/eth-wrapper'
+import { getBalance } from '../deploy-cache'
 
 const initSelected = (st, wallet) => {
   const {account, toAccount} = st
 
   // Pre-select first account if not selected
-
   const selAccount = R.isNil(account) && !R.isNil(wallet)
     ? R.head(wallet) : account
 
@@ -18,32 +18,74 @@ const initSelected = (st, wallet) => {
   return {...st, account: selAccount, toAccount: selToAccount}
 }
 
-export const transferCtrl = (st, {wallet, node, onTransfer, warn}) => {
+export const transferCtrl = (st, {wallet, node, onDeploy, onPropose, onClearCache, onCheckBalance, warn}) => {
   const valEv = name => ev => {
     const val = ev.target.value
     st.update(s => ({...s, [name]: val}))
   }
 
-  const send = async _ => {
+  const checkBalances = async () => {
+    if (account) {
+      await onCheckBalance(account.revAddr)
+    }
+    if (toAccount) {
+      await onCheckBalance(toAccount.revAddr)
+    }
+  }
+
+  const deploy = async _ => {
     st.update(s => ({...s, status: '...', error: ''}))
-    await onTransfer({fromAccount: account, toAccount, amount})
+    
+    // Перевіряємо баланси перед деплоєм
+    await checkBalances()
+    
+    await onDeploy({fromAccount: account, toAccount, amount})
       .then(x => {
         st.update(s => ({...s, status: x, error: ''}))
       })
       .catch(ex => {
         st.update(s => ({...s, status: '', error: ex.message}))
-        warn('Transfer error', ex)
+        warn('Deploy error', ex)
       })
+  }
+
+  const propose = async _ => {
+    st.update(s => ({...s, status: '...', error: ''}))
+    await onPropose({node})
+      .then(x => {
+        st.update(s => ({...s, status: x, error: ''}))
+      })
+      .catch(ex => {
+        st.update(s => ({...s, status: '', error: ex.message}))
+        warn('Propose error', ex)
+      })
+  }
+
+  const clearCache = async _ => {
+    st.update(s => ({...s, status: '...', error: ''}))
+    try {
+      onClearCache()
+      st.update(s => ({...s, status: 'Cache cleared', error: ''}))
+    } catch (ex) {
+      st.update(s => ({...s, status: '', error: ex.message}))
+      warn('Clear cache error', ex)
+    }
   }
 
   const onSelectFrom = async ev => {
     const account = R.find(R.propEq('revAddr', ev.target.value), wallet)
     st.update(s => ({...s, account}))
+    if (account) {
+      await onCheckBalance(account.revAddr)
+    }
   }
 
   const onSelectTo = async ev => {
     const toAccount = R.find(R.propEq('revAddr', ev.target.value), wallet)
     st.update(s => ({...s, toAccount}))
+    if (toAccount) {
+      await onCheckBalance(toAccount.revAddr)
+    }
   }
 
   // Control state
@@ -54,8 +96,12 @@ export const transferCtrl = (st, {wallet, node, onTransfer, warn}) => {
   const labelDestination = `Destination ${tokenName} address`
   const labelAmount      = `Amount (in tiny ${tokenName} x10^${tokenDecimal})`
   const isWalletEmpty    = R.isNil(wallet) || R.isEmpty(wallet)
-  const canTransfer      = account && toAccount && amount && (account || ethDetected)
+  const canDeploy        = account && toAccount && amount && (account || ethDetected)
   const amountPreview    = showTokenDecimal(amount, tokenDecimal)
+
+  // Fetch balances for display
+  const fromBalance = account ? getBalance(account.revAddr) : null
+  const toBalance = toAccount ? getBalance(toAccount.revAddr) : null
 
   return m('.ctrl.transfer-ctrl',
     m('h2', `Transfer ${tokenName} tokens`),
@@ -69,6 +115,7 @@ export const transferCtrl = (st, {wallet, node, onTransfer, warn}) => {
           m('option', {value: revAddr}, `${name}: ${revAddr}`)
         ),
       ),
+      fromBalance !== null && m('', `Current balance: ${showTokenDecimal(fromBalance, tokenDecimal)} ${tokenName}`),
 
       // Target REV address dropdown
       m(''),
@@ -78,6 +125,7 @@ export const transferCtrl = (st, {wallet, node, onTransfer, warn}) => {
           m('option', {value: revAddr}, `${name}: ${revAddr}`)
         ),
       ),
+      toBalance !== null && m('', `Current balance: ${showTokenDecimal(toBalance, tokenDecimal)} ${tokenName}`),
 
       // REV amount
       m(''),
@@ -88,10 +136,12 @@ export const transferCtrl = (st, {wallet, node, onTransfer, warn}) => {
       }),
       labelRev(amountPreview, tokenName),
 
-      // Action button / result
+      // Action buttons / result
       m(''),
-      m('button', {onclick: send, disabled: !canTransfer}, 'Transfer'),
-      status && m('b', status),
+      m('button', {onclick: deploy, disabled: !canDeploy}, 'Deploy'),
+      m('button', {onclick: propose}, 'Propose'),
+      m('button', {onclick: clearCache}, 'Clear Cache'),
+      status && m('pre', status),
       error && m('b.warning', showNetworkError(error)),
     ]
   )

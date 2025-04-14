@@ -2,6 +2,8 @@
 import * as R from 'ramda'
 import { checkBalance_rho } from '../rho/check-balance'
 import { transferFunds_rho } from '../rho/transfer-funds'
+import { addToDeployCache, getDeployCache, clearDeployCache, setInitialBalance, getBalance } from './deploy-cache'
+let deployCache = []
 
 export const makeRNodeActions = (rnodeWeb, {log, warn}) => {
   const { rnodeHttp, sendDeploy, getDataForDeploy, propose } = rnodeWeb
@@ -9,9 +11,9 @@ export const makeRNodeActions = (rnodeWeb, {log, warn}) => {
   // App actions to process communication with RNode
   return {
     appCheckBalance: appCheckBalance({rnodeHttp}),
-    appTransfer    : appTransfer({sendDeploy, getDataForDeploy, propose, log, warn}),
-    appSendDeploy  : appSendDeploy({sendDeploy, getDataForDeploy, log}),
-    appPropose     : appPropose({propose, log}),
+    appDeploy      : appDeploy({sendDeploy, log}),
+    appPropose     : appPropose({propose, getDataForDeploy, log, warn}),
+    appClearCache  : appClearCache(),
   }
 }
 
@@ -20,24 +22,116 @@ const appCheckBalance = ({rnodeHttp}) => async ({node, revAddr}) => {
   const {expr: [e]} = await rnodeHttp(node.httpUrl, 'explore-deploy', deployCode)
   const dataBal     = e && e.ExprInt && e.ExprInt.data
   const dataError   = e && e.ExprString && e.ExprString.data
-  return [dataBal, dataError]
+
+  // Get the balance from the cache
+  const cachedBalance = getBalance(revAddr)
+  const deploys = getDeployCache()
+  const hasUnconfirmedDeploys = deploys.length > 0 && 
+    deploys.some(d => d.fromAccount.revAddr === revAddr || d.toAccount.revAddr === revAddr)
+
+  // If there are unconfirmed transactions, always use the cached balance
+  if (hasUnconfirmedDeploys && cachedBalance !== undefined) {
+    console.log('⚠️ Using cached balance (has unconfirmed deploys):', {
+      address: revAddr,
+      serverBalance: dataBal,
+      cachedBalance,
+      deploys: deploys.length
+    })
+    return [{
+      balance: cachedBalance,
+      isCached: true,
+      unconfirmedDeploys: deploys.length
+    }, null]
+  }
+
+  if (dataError && (!cachedBalance || !hasUnconfirmedDeploys)) {
+    return [{
+      balance: 0,
+      isCached: false,
+      unconfirmedDeploys: 0
+    }, dataError]
+  }
+
+  if (dataBal !== undefined) {
+    setInitialBalance(revAddr, dataBal)
+  }
+
+  return [{
+    balance: dataBal || 0,
+    isCached: false,
+    unconfirmedDeploys: 0
+  }, dataError]
 }
 
-const appTransfer = effects => async ({node, fromAccount, toAccount, amount, setStatus}) => {
-  const {sendDeploy, getDataForDeploy, propose, log, warn} = effects
+const appDeploy = effects => async ({node, fromAccount, toAccount, amount, setStatus}) => {
+  const {sendDeploy, log} = effects
 
-  log('TRANSFER', {amount, from: fromAccount.name, to: toAccount.name, shardId: node.shardId, node: node.httpUrl})
+  console.log('🚀 Starting deploy process:', {
+    from: fromAccount.name,
+    to: toAccount.name,
+    amount,
+    node: node.httpUrl
+  })
 
   setStatus(`Deploying ...`)
 
   // Send deploy
   const code = transferFunds_rho(fromAccount.revAddr, toAccount.revAddr, amount)
   const {signature} = await sendDeploy(node, fromAccount, code)
-  log('DEPLOY ID (signature)', signature)
+  console.log('✅ Deploy sent successfully:', {
+    signature,
+    from: fromAccount.name,
+    to: toAccount.name,
+    amount
+  })
 
-  if (node.network === 'localnet' || node.network === 'testnet') {
-    // Propose on local network, don't wait for result
-    propose(node).catch(ex => warn(ex))
+  // Add to cache
+  addToDeployCache({
+    signature,
+    fromAccount,
+    toAccount,
+    amount,
+    node,
+    code
+  })
+
+  return `✓ Deploy successful (signature: ${signature})`
+}
+
+const appPropose = effects => async ({node, setStatus}) => {
+  const {propose, getDataForDeploy, log, warn} = effects
+
+  const deploys = getDeployCache()
+  if (deploys.length === 0) {
+    console.log('⚠️ No deploys in cache to propose')
+    return 'No deploys in cache to propose'
+  }
+
+  console.log('📦 Starting propose process:', {
+    totalDeploys: deploys.length,
+    node: node.httpUrl,
+    deploys: deploys.map(d => ({
+      signature: d.signature,
+      from: d.fromAccount.name,
+      to: d.toAccount.name,
+      amount: d.amount
+    }))
+  })
+
+  setStatus(`Proposing ...`)
+
+  // Propose block with deploys
+  try {
+    await propose(node, {
+      deploys: deploys.map(d => d.signature)
+    }).catch(ex => {
+      console.error('❌ Propose error:', ex)
+      warn(ex)
+      throw ex
+    })
+    console.log('✅ Block proposed successfully')
+  } catch (ex) {
+    return `Propose failed: ${ex.message}`
   }
 
   // Progress dots
@@ -45,62 +139,78 @@ const appTransfer = effects => async ({node, fromAccount, toAccount, amount, set
     i = i > 60 ? 0 : i + 3
     return `Checking result ${R.repeat('.', i).join('')}`
   }
-  const progressStep   = mkProgress(0)
+  const progressStep = mkProgress(0)
   const updateProgress = _ => setStatus(progressStep())
   updateProgress()
 
-  // Try to get result from next proposed block
-  const {data, cost} = await getDataForDeploy(node, signature, updateProgress)
-  // Extract data from response object
-  const args               = data ? rhoExprToJS(data.expr) : void 0
-  const costTxt            = R.isNil(cost) ? 'failed to retrive' : cost
-  const [success, message] = args || [false, 'deploy found in the block but failed to get confirmation data']
+  console.log('🔍 Checking results for deploys...')
+  // Check results for all deploys
+  const results = []
+  const successfulDeploys = new Set()
 
-  if (!success) throw Error(`Transfer error: ${message}. // cost: ${costTxt}`)
-  return `✓ ${message} // cost: ${costTxt}`
-}
+  for (const deploy of deploys) {
+    const {signature, fromAccount, toAccount, amount} = deploy
+    console.log('📝 Checking deploy:', {
+      signature,
+      from: fromAccount.name,
+      to: toAccount.name,
+      amount
+    })
 
-const appSendDeploy = effects => async ({node, code, account, phloLimit, setStatus}) => {
-  const {sendDeploy, getDataForDeploy, log} = effects
+    try {
+      const {data, cost} = await getDataForDeploy(node, signature, updateProgress)
+      const args = data ? rhoExprToJS(data.expr) : void 0
+      const costTxt = R.isNil(cost) ? 'failed to retrieve' : cost
+      const [success, message] = args || [false, 'deploy found in the block but failed to get confirmation data']
 
-  log('SENDING DEPLOY', {account: account.name, phloLimit, shardId: node.shardId, node: node.httpUrl, code})
-
-  setStatus(`Deploying ...`)
-
-  const {signature} = await sendDeploy(node, account, code, phloLimit)
-  log('DEPLOY ID (signature)', signature)
-
-  // Progress dots
-  const mkProgress = i => () => {
-    i = i > 60 ? 0 : i + 3
-    return `Checking result ${R.repeat('.', i).join('')}`
+      if (!success) {
+        console.error('❌ Deploy failed:', {
+          signature,
+          from: fromAccount.name,
+          to: toAccount.name,
+          amount,
+          error: message
+        })
+        warn(`Transfer error for ${fromAccount.name} -> ${toAccount.name} (${amount}): ${message}`)
+        results.push(`✗ Transfer error: ${message}. // cost: ${costTxt}`)
+      } else {
+        console.log('✅ Deploy successful:', {
+          signature,
+          from: fromAccount.name,
+          to: toAccount.name,
+          amount,
+          cost: costTxt
+        })
+        results.push(`✓ ${message} // cost: ${costTxt}`)
+        successfulDeploys.add(signature)
+      }
+    } catch (ex) {
+      console.error('❌ Failed to check deploy:', {
+        signature,
+        error: ex.message
+      })
+      results.push(`✗ Failed to check deploy: ${ex.message}`)
+    }
   }
-  const progressStep   = mkProgress(0)
-  const updateProgress = _ => setStatus(progressStep())
-  updateProgress()
 
-  // Try to get result from next proposed block
-  const {data, cost} = await getDataForDeploy(node, signature, updateProgress)
-  // Extract data from response object
-  const args = data ? rhoExprToJS(data.expr) : void 0
+  // Remove only successful deploys from cache
+  deployCache = deployCache.filter(d => !successfulDeploys.has(d.signature))
+  
+  // Update balances in cache for successful deploys
+  if (successfulDeploys.size > 0) {
+    console.log('🔄 Updating cache state:', {
+      successfulDeploys: successfulDeploys.size,
+      remainingDeploys: deployCache.length
+    })
+  }
 
-  log('DEPLOY RETURN DATA', {args, cost, rawData: data})
-
-  const costTxt            = R.isNil(cost) ? 'failed to retrive' : cost
-  const [success, message] = R.isNil(args)
-    ? [false, 'deploy found in the block but data is not sent on `rho:rchain:deployId` channel']
-    : [true, R.is(Array, args) ? args.join(', ') : args]
-
-  if (!success) throw Error(`Deploy error: ${message}. // cost: ${costTxt}`)
-  return `✓ (${message}) // cost: ${costTxt}`
+  return results.join('\n')
 }
 
-const appPropose = ({propose, log}) => async ({httpAdminUrl}) => {
-  const resp = await propose({httpAdminUrl})
-
-  log('Propose result', resp)
-
-  return resp
+const appClearCache = () => () => {
+  console.log('🧹 Clearing deploy cache...')
+  clearDeployCache()
+  return 'Deploy cache cleared'
 }
 
 // Converts RhoExpr response from RNode WebAPI

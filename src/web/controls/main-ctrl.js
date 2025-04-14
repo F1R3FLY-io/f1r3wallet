@@ -21,17 +21,17 @@ import { newRevAddress } from '@tgrospic/rnode-grpc-js'
 const repoUrl = 'https://github.com/F1R3FLY-io/f1r3wallet'
 
 const mainCtrl = (st, effects) => {
-  const { appCheckBalance, appTransfer, appSendDeploy, appPropose, log, warn } = effects
+  const { appCheckBalance, appDeploy, appPropose, appClearCache, log, warn } = effects
 
   const onCheckBalance = node => revAddr => appCheckBalance({node, revAddr})
 
-  const onTransfer = (node, setStatus) => ({fromAccount, toAccount, amount}) =>
-    appTransfer({node, fromAccount, toAccount, amount, setStatus})
+  const onDeploy = (node, setStatus) => ({fromAccount, toAccount, amount}) =>
+    appDeploy({node, fromAccount, toAccount, amount, setStatus})
 
-  const onSendDeploy = (node, setStatus) => ({code, account, phloLimit}) =>
-    appSendDeploy({node, code, account, phloLimit, setStatus})
+  const onPropose = (node, setStatus) => () =>
+    appPropose({node, setStatus})
 
-  const onPropose = node => () => appPropose(node)
+  const onClearCache = () => appClearCache()
 
   const appendUpdateLens = pred => R.lens(R.find(pred), (x, xs) => {
     const idx = R.findIndex(pred, xs)
@@ -105,15 +105,21 @@ const mainCtrl = (st, effects) => {
 
     // Transfer REV control
     transferCtrl(transferSt, {
-      wallet, node: valNodeUrls, onTransfer: onTransfer(valNodeUrls, setTransferStatus), warn,
+      wallet,
+      node: valNodeUrls,
+      onDeploy: onDeploy(valNodeUrls, setTransferStatus),
+      onPropose: onPropose(valNodeUrls, setTransferStatus),
+      onClearCache,
+      onCheckBalance: onCheckBalance(readNodeUrls),
+      warn,
     }),
 
     // Custom deploy control
     m('hr'),
     customDeployCtrl(customDeploySt, {
       wallet, node: valNodeUrls,
-      onSendDeploy: onSendDeploy(valNodeUrls, setDeployStatus),
-      onPropose: onPropose(valNodeUrls),
+      onSendDeploy: onDeploy(valNodeUrls, setDeployStatus),
+      onPropose: onPropose(valNodeUrls, setDeployStatus),
       warn,
     }),
   )

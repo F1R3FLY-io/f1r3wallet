@@ -24,21 +24,8 @@ export const transferCtrl = (st, {wallet, node, onDeploy, onPropose, onClearCach
     st.update(s => ({...s, [name]: val}))
   }
 
-  const checkBalances = async () => {
-    if (account) {
-      await onCheckBalance(account.revAddr)
-    }
-    if (toAccount) {
-      await onCheckBalance(toAccount.revAddr)
-    }
-  }
-
   const deploy = async _ => {
     st.update(s => ({...s, status: '...', error: ''}))
-    
-    // Перевіряємо баланси перед деплоєм
-    await checkBalances()
-    
     await onDeploy({fromAccount: account, toAccount, amount})
       .then(x => {
         st.update(s => ({...s, status: x, error: ''}))
@@ -72,20 +59,14 @@ export const transferCtrl = (st, {wallet, node, onDeploy, onPropose, onClearCach
     }
   }
 
-  const onSelectFrom = async ev => {
+  const onSelectFrom = ev => {
     const account = R.find(R.propEq('revAddr', ev.target.value), wallet)
     st.update(s => ({...s, account}))
-    if (account) {
-      await onCheckBalance(account.revAddr)
-    }
   }
 
-  const onSelectTo = async ev => {
+  const onSelectTo = ev => {
     const toAccount = R.find(R.propEq('revAddr', ev.target.value), wallet)
     st.update(s => ({...s, toAccount}))
-    if (toAccount) {
-      await onCheckBalance(toAccount.revAddr)
-    }
   }
 
   // Control state
@@ -99,9 +80,15 @@ export const transferCtrl = (st, {wallet, node, onDeploy, onPropose, onClearCach
   const canDeploy        = account && toAccount && amount && (account || ethDetected)
   const amountPreview    = showTokenDecimal(amount, tokenDecimal)
 
-  // Fetch balances for display
+  // Get balances
   const fromBalance = account ? getBalance(account.revAddr) : null
   const toBalance = toAccount ? getBalance(toAccount.revAddr) : null
+
+  // Format balance display
+  const formatBalance = (balance) => 
+    balance !== null && balance !== undefined 
+      ? `Current balance: ${showTokenDecimal(balance, tokenDecimal)} ${tokenName}`
+      : `Current balance: 0 ${tokenName}`
 
   return m('.ctrl.transfer-ctrl',
     m('h2', `Transfer ${tokenName} tokens`),
@@ -115,7 +102,7 @@ export const transferCtrl = (st, {wallet, node, onDeploy, onPropose, onClearCach
           m('option', {value: revAddr}, `${name}: ${revAddr}`)
         ),
       ),
-      fromBalance !== null && m('', `Current balance: ${showTokenDecimal(fromBalance, tokenDecimal)} ${tokenName}`),
+      account && m('', formatBalance(fromBalance)),
 
       // Target REV address dropdown
       m(''),
@@ -125,7 +112,7 @@ export const transferCtrl = (st, {wallet, node, onDeploy, onPropose, onClearCach
           m('option', {value: revAddr}, `${name}: ${revAddr}`)
         ),
       ),
-      toBalance !== null && m('', `Current balance: ${showTokenDecimal(toBalance, tokenDecimal)} ${tokenName}`),
+      toAccount && m('', formatBalance(toBalance)),
 
       // REV amount
       m(''),

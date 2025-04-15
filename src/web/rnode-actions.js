@@ -2,7 +2,7 @@
 import * as R from 'ramda'
 import { checkBalance_rho } from '../rho/check-balance'
 import { transferFunds_rho } from '../rho/transfer-funds'
-import { addToDeployCache, getDeployCache, clearDeployCache, setInitialBalance, getBalance } from './deploy-cache'
+import { addToDeployCache, getDeployCache, clearDeployCache, setInitialBalance, getBalance, getPendingAmount } from './deploy-cache'
 let deployCache = []
 
 export const makeRNodeActions = (rnodeWeb, {log, warn}) => {
@@ -11,7 +11,7 @@ export const makeRNodeActions = (rnodeWeb, {log, warn}) => {
   // App actions to process communication with RNode
   return {
     appCheckBalance: appCheckBalance({rnodeHttp}),
-    appDeploy      : appDeploy({sendDeploy, log}),
+    appDeploy      : appDeploy({sendDeploy, rnodeHttp, log}),
     appPropose     : appPropose({propose, getDataForDeploy, log, warn}),
     appClearCache  : appClearCache(),
   }
@@ -25,6 +25,8 @@ const appCheckBalance = ({rnodeHttp}) => async ({node, revAddr}) => {
 
   // Get the balance from the cache
   const cachedBalance = getBalance(revAddr)
+  const pendingAmount = getPendingAmount(revAddr)
+  const availableBalance = cachedBalance - pendingAmount
   const deploys = getDeployCache()
   const hasUnconfirmedDeploys = deploys.length > 0 && 
     deploys.some(d => d.fromAccount.revAddr === revAddr || d.toAccount.revAddr === revAddr)
@@ -64,14 +66,24 @@ const appCheckBalance = ({rnodeHttp}) => async ({node, revAddr}) => {
 }
 
 const appDeploy = effects => async ({node, fromAccount, toAccount, amount, setStatus}) => {
-  const {sendDeploy, log} = effects
+  const {sendDeploy, rnodeHttp, log} = effects
 
-  console.log('🚀 Starting deploy process:', {
+  console.log('🔍 Checking balance before deploy:', {
     from: fromAccount.name,
     to: toAccount.name,
     amount,
     node: node.httpUrl
   })
+
+  // Get cached balance and check if it's sufficient
+  const cachedBalance = getBalance(fromAccount.revAddr)
+  const pendingAmount = getPendingAmount(fromAccount.revAddr)
+  const availableBalance = cachedBalance - pendingAmount
+  
+  if (availableBalance < amount) {
+    console.error(`Insufficient funds: available=${availableBalance}, required=${amount}, pending=${pendingAmount}`)
+    throw new Error('Insufficient funds')
+  }
 
   setStatus(`Deploying ...`)
 

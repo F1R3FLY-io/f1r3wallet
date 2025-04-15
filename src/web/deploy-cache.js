@@ -14,23 +14,27 @@ export const addToDeployCache = (deploy) => {
     throw new Error(`Unknown balance for ${deploy.fromAccount.name}. Please check balance first.`)
   }
 
-  // Get the sender's current balance
+  // Get the sender's current balance and pending amount
   const currentBalance = balanceCache.get(deploy.fromAccount.revAddr)
-  const newBalance = currentBalance - deploy.amount
+  const pendingAmount = getPendingAmount(deploy.fromAccount.revAddr)
+  const availableBalance = currentBalance - pendingAmount
+  const newBalance = availableBalance - deploy.amount
 
   // Check for sufficient funds
   if (newBalance < 0) {
     console.error('❌ Insufficient funds:', {
       from: deploy.fromAccount.name,
       currentBalance,
+      pendingAmount,
+      availableBalance,
       amount: deploy.amount,
-      required: deploy.amount - currentBalance
+      required: deploy.amount - availableBalance
     })
-    throw new Error(`Insufficient funds in ${deploy.fromAccount.name}. Current balance: ${currentBalance}, required: ${deploy.amount}`)
+    throw new Error(`Insufficient funds in ${deploy.fromAccount.name}. Available balance: ${availableBalance}, required: ${deploy.amount}`)
   }
 
   // Update the sender's balance
-  balanceCache.set(deploy.fromAccount.revAddr, newBalance)
+  balanceCache.set(deploy.fromAccount.revAddr, currentBalance)
   
   // For the recipient: if the balance is not in the cache, set it to 0
   if (!balanceCache.has(deploy.toAccount.revAddr)) {
@@ -52,7 +56,7 @@ export const addToDeployCache = (deploy) => {
     from: deploy.fromAccount.name,
     to: deploy.toAccount.name,
     amount: deploy.amount,
-    fromBalance: newBalance,
+    fromBalance: currentBalance,
     toBalance: toBalance + deploy.amount,
     totalDeploys: deployCache.length
   })
@@ -129,4 +133,10 @@ export const setInitialBalance = (address, balance) => {
 
 export const getBalance = (address) => {
   return balanceCache.get(address)
+}
+
+export const getPendingAmount = (revAddr) => {
+  return deployCache
+    .filter(d => d.fromAccount.revAddr === revAddr)
+    .reduce((total, d) => total + Number(d.amount), 0)
 } 

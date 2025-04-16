@@ -3,6 +3,7 @@ import * as R from 'ramda'
 
 let deployCache = []
 let balanceCache = new Map()
+let deployDependencies = new Map()
 
 export const addToDeployCache = (deploy) => {
   // Check if the sender's balance is in the cache
@@ -18,10 +19,27 @@ export const addToDeployCache = (deploy) => {
   const currentBalance = balanceCache.get(deploy.fromAccount.revAddr)
   const pendingAmount = getPendingAmount(deploy.fromAccount.revAddr)
   const availableBalance = currentBalance - pendingAmount
-  const newBalance = availableBalance - deploy.amount
 
-  // Check for sufficient funds
-  if (newBalance < 0) {
+  const incomingAmount = getIncomingAmount(deploy.fromAccount.revAddr)
+
+  if (availableBalance < deploy.amount && incomingAmount > 0) {
+    const dependencies = deployCache
+      .filter(d => d.toAccount.revAddr === deploy.fromAccount.revAddr)
+      .map(d => d.signature)
+
+    deployDependencies.set(deploy.signature, dependencies)
+    
+    console.log('ℹ️ Deploy has dependencies:', {
+      signature: deploy.signature,
+      from: deploy.fromAccount.name,
+      dependencies: dependencies,
+      availableBalance,
+      incomingAmount
+    })
+  }
+
+  // Check for sufficient funds (враховуємо тільки поточний баланс)
+  if (availableBalance < deploy.amount) {
     console.error('❌ Insufficient funds:', {
       from: deploy.fromAccount.name,
       currentBalance,
@@ -58,25 +76,50 @@ export const addToDeployCache = (deploy) => {
     amount: deploy.amount,
     fromBalance: currentBalance,
     toBalance: toBalance + deploy.amount,
-    totalDeploys: deployCache.length
+    totalDeploys: deployCache.length,
+    hasDependencies: deployDependencies.has(deploy.signature)
   })
 }
 
 export const getDeployCache = () => {
+  const sortedDeploys = []
+  const processed = new Set()
+  
+  const processDeploy = (deploy) => {
+    if (processed.has(deploy.signature)) return
+
+    const dependencies = deployDependencies.get(deploy.signature) || []
+    for (const depSignature of dependencies) {
+      const depDeploy = deployCache.find(d => d.signature === depSignature)
+      if (depDeploy) {
+        processDeploy(depDeploy)
+      }
+    }
+    
+    sortedDeploys.push(deploy)
+    processed.add(deploy.signature)
+  }
+
+  for (const deploy of deployCache) {
+    processDeploy(deploy)
+  }
+
   console.log('📋 Current cache state:', {
-    totalDeploys: deployCache.length,
-    deploys: deployCache.map(d => ({
+    totalDeploys: sortedDeploys.length,
+    deploys: sortedDeploys.map(d => ({
       signature: d.signature,
       from: d.fromAccount.name,
       to: d.toAccount.name,
-      amount: d.amount
+      amount: d.amount,
+      dependencies: deployDependencies.get(d.signature) || []
     })),
     balances: Array.from(balanceCache.entries()).map(([addr, balance]) => ({
       address: addr,
       balance
     }))
   })
-  return deployCache
+  
+  return sortedDeploys
 }
 
 export const clearDeployCache = () => {
@@ -95,6 +138,7 @@ export const clearDeployCache = () => {
   })
   deployCache = []
   balanceCache.clear()
+  deployDependencies.clear()
   console.log('✅ Cache cleared. New state:', {
     totalDeploys: deployCache.length,
     balances: Array.from(balanceCache.entries()).map(([addr, balance]) => ({
@@ -111,7 +155,6 @@ export const removeFromDeployCache = (signature) => {
   })
   const deploy = deployCache.find(d => d.signature === signature)
   if (deploy) {
-    // Відновлюємо баланси
     const fromBalance = balanceCache.get(deploy.fromAccount.revAddr) || 0
     balanceCache.set(deploy.fromAccount.revAddr, fromBalance + deploy.amount)
     
@@ -138,5 +181,11 @@ export const getBalance = (address) => {
 export const getPendingAmount = (revAddr) => {
   return deployCache
     .filter(d => d.fromAccount.revAddr === revAddr)
+    .reduce((total, d) => total + Number(d.amount), 0)
+}
+
+export const getIncomingAmount = (revAddr) => {
+  return deployCache
+    .filter(d => d.toAccount.revAddr === revAddr)
     .reduce((total, d) => total + Number(d.amount), 0)
 } 

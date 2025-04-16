@@ -40,12 +40,14 @@ export const localNet = {
 
 // Test network
 const domainMap = {
-  'asi-dev': '146.235.215.215',
-  'asi-dev-readonly': '146.235.215.215',
-  'asi-stg': '159.54.178.87',
-  'asi-stg-readonly': '159.54.178.87',
-  'asi-prod': '167.234.221.56',
-  'asi-prod-readonly': '167.234.221.56',
+  // 'asi-dev': '146.235.215.215',
+  // 'asi-dev-readonly': '146.235.215.215',
+  // 'asi-stg': '159.54.178.87',
+  // 'asi-stg-readonly': '159.54.178.87',
+  // 'asi-prod': '167.234.221.56',
+  // 'asi-prod-readonly': '167.234.221.56',
+  'f1r3fly-dev': '159.54.181.185',
+  'f1r3fly-dev-readonly': '159.54.181.185',
   'localhost': 'localhost'
 };
 

@@ -125,7 +125,7 @@ export const transferCtrl = (st, {wallet, node, onDeploy, onPropose, onClearCach
 
       // Action buttons / result
       m(''),
-      m('button', {onclick: deploy, disabled: !canDeploy}, 'Deploy'),
+      m('button', {onclick: deploy, disabled: !canDeploy}, 'Deploy to Cache'),
       m('button', {onclick: propose}, 'Propose'),
       m('button', {onclick: clearCache}, 'Clear Cache'),
       status && m('pre', status),

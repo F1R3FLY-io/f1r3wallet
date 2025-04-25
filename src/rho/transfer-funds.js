@@ -5,7 +5,8 @@
  * NOTE: Leading whitespaces are removed to fix strange bug in Trezor<->Metamask communication.
  * https://github.com/tgrospic/rnode-client-js/issues/22
  */
-export const transferFunds_rho = (revAddrFrom, revAddrTo, amount) => `
+export const transferFunds_rho = (revAddrFrom, revAddrTo, amount) => `\
+//FIREFLY_OPERATION;SET_TRANSFER;"${revAddrFrom}";"${revAddrTo}";${amount};"Transfer successful (not yet finalized)."
 new rl(\`rho:registry:lookup\`), RevVaultCh in {
 rl!(\`rho:rchain:revVault\`, *RevVaultCh) |
 for (@(_, RevVault) <- RevVaultCh) {
